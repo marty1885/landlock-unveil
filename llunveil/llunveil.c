@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <llunveil.h>
 
 #ifndef landlock_create_ruleset
 static inline int landlock_create_ruleset(
