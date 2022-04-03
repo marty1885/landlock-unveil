@@ -72,13 +72,12 @@ int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
     }
     int fd = open(path, O_PATH | O_CLOEXEC);
     if(fd < 0) {
-        perror("Cannot open file/directory");
         errno = ENOENT;
         return -1;
     }
 
     struct stat statbuf;
-    if (stat(path, &statbuf) != 0)
+    if (fstat(fd, &statbuf) != 0)
        return -1;
     if(!S_ISDIR(statbuf.st_mode)) {
         allowed_access &= ACCESS_FILE;
@@ -185,7 +184,7 @@ int llunveil(const char* path, const char* permissions)
             default:
                 errno = EPERM;
                 fprintf(stderr, "Bad permission\n");
-                return 1;
+                return -1;
         }
     }
     return llunveil_add_rule(path, permission_flags);
