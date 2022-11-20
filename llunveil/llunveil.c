@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -142,7 +143,7 @@ static int llunveil_commit()
 static int llunveil_add_rule(const char* path, int64_t permissions)
 {
     if (populate_ruleset(ruleset_fd, path, permissions)) {
-        perror("Could not populate ruleset");
+        fprintf( stderr, "Could not populate ruleset for %s: %s\n", path, strerror(errno));
         return -1;
     }
     return 0;
