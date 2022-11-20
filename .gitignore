@@ -34,6 +34,7 @@
 build/
 cmake-build-debug/
 .idea/
+.mulle/
 lib/inc/drogon/version.h
 html/
 latex/
