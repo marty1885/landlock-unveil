@@ -81,7 +81,7 @@ int main(int argc, char *argv[], char **envp) {
 
 
     char *cmd_path = argv[i];
-    char **cmd_argv = argv+i+1;
+    char **cmd_argv = argv+i;
     execvpe(cmd_path, cmd_argv, envp);
     fprintf(stderr, "Failed to execute \"%s\": %s\n", cmd_path,
             strerror(errno));

@@ -2,7 +2,7 @@
 
 OpenBSD [unveil(2)][unveil] like function on Linux using [Landlock][landlock] (starting from Linux >= 5.13). Rewritten largely based on [gonack's landlockjail][landlockjail]
 
-**Impoerant:** This is experimental software. DO NOT depend on it for security.
+**Important:** This is experimental software. DO NOT depend on it for security.
 
 ## Documentation
 
@@ -10,7 +10,7 @@ See OpenBSD unveil(2) for details. Like unveil(2), llunveil(2) allows a process 
 
 * Filesystem protection is activated upon calling `unveil(NULL, NULL)`
 
-Instead of activating upon calling the unveil function. Protections have to be commited in llunveil for it to take effect. For example:
+Instead of activating upon calling the unveil function. Protections have to be commited in llunveil for them to take effect. For example:
 
 ```c
 #define LLUNVEIL_USE_UNVEIL // create a macro called `unveil`. Prevent conflict
@@ -31,7 +31,7 @@ assert(fopen("/tmp/some_text.txt", "r") == NULL);
 
 ## How to build
 
-You need a C11 compatiable compiler. And be on Linux >= 5.13 (for the syscall numbers). And CMake for build generation.
+You need a C11 compatible compiler. And be on Linux >= 5.13 (for the syscall numbers). And CMake for build generation.
 
 ```
 mkdir build
@@ -67,6 +67,6 @@ bash: /usr/local/bin/example: Permission denied
 ## TODO
 
 - [ ] Make unit tests
-- [ ] Ensure same behaivour as OpenBSD's
+- [ ] Ensure same behaviour as OpenBSD's
 - [ ] Remove debug error prints
 - [ ] Proper `errno`
