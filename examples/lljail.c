@@ -68,10 +68,16 @@ int main(int argc, char *argv[], char **envp) {
         }
         else {
             path = arg;
-            unveil(path, flag);
+            // Add new path into our ruleset
+            if(unveil(path, flag) != 0) {
+                fprintf(stderr, "unveil() failed. Error: %s", strerror(errno));
+            }
         }
     }
-    unveil(NULL, NULL);
+    // Unlike OpenBSD unveil. llunveil enables protection on unveil(NULL, NULL) (locking down)
+    if(unveil(NULL, NULL) != 0) {
+        fprintf(stderr, "failed to lockdown landock ruleset. %s", strerror(errno));
+    }
 
     if(strcmp(argv[i], "--") != 0 || i+1 == argc) {
         fprintf(stderr, "Missing program to execute\n");
@@ -83,6 +89,7 @@ int main(int argc, char *argv[], char **envp) {
     char *cmd_path = argv[i];
     char **cmd_argv = argv+i;
     execvpe(cmd_path, cmd_argv, envp);
+    // This block of code should now be executed if execvpe() is running correctly. No need to explicit check
     fprintf(stderr, "Failed to execute \"%s\": %s\n", cmd_path,
             strerror(errno));
     fprintf(stderr, "Hint: access to the binary, the interpreter or "
