@@ -1,18 +1,21 @@
 #define _GNU_SOURCE
-#include <errno.h>
-#include <fcntl.h>
-#include <linux/landlock.h>
-#include <linux/prctl.h>
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
+
+
+#include <fcntl.h>
+#include <linux/landlock.h>
+#include <linux/prctl.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
-#include <unistd.h>
-#include <llunveil.h>
+
+#include "llunveil.h"
 
 #ifndef landlock_create_ruleset
 static inline int landlock_create_ruleset(
@@ -68,12 +71,12 @@ static inline int landlock_restrict_self(const int ruleset_fd,
 
 int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
     if(path == NULL) {
-        errno = EPERM;
+        errno = EFAULT;
         return -1;
     }
     int fd = open(path, O_PATH | O_CLOEXEC);
     if(fd < 0) {
-        errno = ENOENT;
+        // We rely on `open()` to provide to correct ERRNO
         return -1;
     }
 
@@ -93,7 +96,7 @@ int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
                           &path_beneath, 0)) {
         perror("failed to update ruleset");
         close(fd);
-        errno = EPERM;
+        // landlock syscall sets the errno
         return -1;
     }
 
@@ -152,6 +155,7 @@ static int llunveil_add_rule(const char* path, int64_t permissions)
 int llunveil(const char* path, const char* permissions)
 {
     if(initialized == 0) {
+      // The proper errno is set by llunveil_init()
         if(llunveil_init() != 0)
             return -1;
         initialized = 1;
@@ -183,8 +187,7 @@ int llunveil(const char* path, const char* permissions)
                 permission_flags |= ACCESS_FS_CREATE;
                 break;
             default:
-                errno = EPERM;
-                fprintf(stderr, "Bad permission\n");
+                errno = EINVAL;
                 return -1;
         }
     }
