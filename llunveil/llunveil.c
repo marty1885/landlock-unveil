@@ -7,7 +7,6 @@
 #include <errno.h>
 #include <unistd.h>
 
-
 #include <fcntl.h>
 #include <linux/landlock.h>
 #include <linux/prctl.h>
@@ -44,19 +43,32 @@ static inline int landlock_restrict_self(const int ruleset_fd,
 }
 #endif
 
+// HACK: Make llunveil compile on older kernels. The ABI should be stable so this is safe.
+#ifndef LANDLOCK_ACCESS_FS_REFER
+#define LANDLOCK_ACCESS_FS_REFER (1ULL << 13)
+#endif
+
+#ifndef LANDLOCK_ACCESS_FS_TRUNCATE
+#define LANDLOCK_ACCESS_FS_TRUNCATE (1ULL << 14)
+#endif
+
 #define ACCESS_FILE ( \
     LANDLOCK_ACCESS_FS_EXECUTE | \
     LANDLOCK_ACCESS_FS_WRITE_FILE | \
-    LANDLOCK_ACCESS_FS_READ_FILE)
+    LANDLOCK_ACCESS_FS_READ_FILE | \
+    LANDLOCK_ACCESS_FS_REFER)
 
 #define ACCESS_FS_EXECUTE LANDLOCK_ACCESS_FS_EXECUTE
 
 #define ACCESS_FS_READ (     \
     LANDLOCK_ACCESS_FS_READ_FILE | \
-    LANDLOCK_ACCESS_FS_READ_DIR)
+    LANDLOCK_ACCESS_FS_READ_DIR | \
+    LANDLOCK_ACCESS_FS_REFER)
 
 #define ACCESS_FS_WRITE ( \
-    LANDLOCK_ACCESS_FS_WRITE_FILE)
+    LANDLOCK_ACCESS_FS_WRITE_FILE | \
+    LANDLOCK_ACCESS_FS_TRUNCATE | \
+    LANDLOCK_ACCESS_FS_REFER)
 
 #define ACCESS_FS_CREATE ( \
     LANDLOCK_ACCESS_FS_REMOVE_DIR | \
@@ -67,7 +79,8 @@ static inline int landlock_restrict_self(const int ruleset_fd,
     LANDLOCK_ACCESS_FS_MAKE_SOCK | \
     LANDLOCK_ACCESS_FS_MAKE_FIFO | \
     LANDLOCK_ACCESS_FS_MAKE_BLOCK | \
-    LANDLOCK_ACCESS_FS_MAKE_SYM)
+    LANDLOCK_ACCESS_FS_MAKE_SYM | \
+    LANDLOCK_ACCESS_FS_REFER)
 
 int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
     if(path == NULL) {
@@ -107,13 +120,13 @@ static struct landlock_ruleset_attr ruleset_attr;
 static int ruleset_fd = 0;
 static _Bool initialized = 0;
 static _Bool commited = 0;
+static int abi_version = 0;
 
 static int llunveil_init()
 {
-    ruleset_attr.handled_access_fs = ACCESS_FS_READ | ACCESS_FS_WRITE
-       | ACCESS_FS_CREATE | ACCESS_FS_EXECUTE;
-    ruleset_fd = landlock_create_ruleset(&ruleset_attr, sizeof(ruleset_attr), 0);
-    if (ruleset_fd < 0) {
+    abi_version = landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
+    // minimal required version is 1, according to the docs
+    if(abi_version <= 0) {
         switch (errno) {
         case ENOSYS:
             perror("Landlock is not supported by your kernel"); break;
@@ -122,6 +135,20 @@ static int llunveil_init()
         default:
             perror("Unknown error"); break;
         }
+        return -1;
+    }
+
+    ruleset_attr.handled_access_fs = ACCESS_FS_READ | ACCESS_FS_WRITE
+       | ACCESS_FS_CREATE | ACCESS_FS_EXECUTE;
+    // Limit the available ruleset attributes to the kernel's supported ones.
+    if(abi_version < 3)
+        ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_TRUNCATE;
+    if(abi_version < 2)
+        ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_REFER;
+
+    ruleset_fd = landlock_create_ruleset(&ruleset_attr, sizeof(ruleset_attr), 0);
+    if (ruleset_fd < 0) {
+        perror("Failed to create landlock ruleset");
         return -1;
     }
   
