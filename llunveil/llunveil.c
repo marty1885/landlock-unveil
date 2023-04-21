@@ -117,7 +117,7 @@ int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
 }
 
 static struct landlock_ruleset_attr ruleset_attr;
-static int ruleset_fd = 0;
+static int ruleset_fd = -1;
 static _Bool initialized = 0;
 static _Bool commited = 0;
 
@@ -196,6 +196,10 @@ int llunveil(const char* path, const char* permissions)
     }
     if(commited) {
         errno = EPERM;
+        return -1;
+    }
+    if(path == NULL || permissions == NULL) {
+        errno = EFAULT;
         return -1;
     }
     int64_t permission_flags = 0;
