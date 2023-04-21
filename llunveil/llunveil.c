@@ -120,12 +120,10 @@ static struct landlock_ruleset_attr ruleset_attr;
 static int ruleset_fd = 0;
 static _Bool initialized = 0;
 static _Bool commited = 0;
-static int abi_version = 0;
-static unsigned long long ruleset_mask = 0xffffffffffffffffULL;
 
 static int llunveil_init()
 {
-    abi_version = landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
+    int abi_version = landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
     // minimal required version is 1, according to the docs
     if(abi_version <= 0) {
         switch (errno) {
@@ -142,17 +140,10 @@ static int llunveil_init()
     ruleset_attr.handled_access_fs = ACCESS_FS_READ | ACCESS_FS_WRITE
        | ACCESS_FS_CREATE | ACCESS_FS_EXECUTE;
     // Limit the available ruleset attributes to the kernel's supported ones.
-    // WORKARROUND: Apprantly `handled_access_fs` as shown on the documentation
-    // does not work on the kernel shipped with WSL2. It just spits out erorr.
-    // Also having trouble with Ubuntu 22.04
-    if(abi_version < 3) {
+    if(abi_version < 3)
         ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_TRUNCATE;
-        ruleset_mask &= ~LANDLOCK_ACCESS_FS_TRUNCATE;
-    }
-    if(abi_version < 2) {
+    if(abi_version < 2)
         ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_REFER;
-        ruleset_mask &= ~LANDLOCK_ACCESS_FS_REFER;
-    }
 
     ruleset_fd = landlock_create_ruleset(&ruleset_attr, sizeof(ruleset_attr), 0);
     if (ruleset_fd < 0) {
@@ -181,7 +172,7 @@ static int llunveil_commit()
 static int llunveil_add_rule(const char* path, int64_t permissions)
 {
     printf("Add rule: %s: %ld\n", path, permissions);
-    if (populate_ruleset(ruleset_fd, path, permissions & ruleset_mask)) {
+    if (populate_ruleset(ruleset_fd, path, permissions & ruleset_attr.handled_access_fs)) {
         fprintf( stderr, "Could not populate ruleset for %s: %s\n", path, strerror(errno));
         return -1;
     }
