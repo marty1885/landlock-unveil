@@ -171,7 +171,6 @@ static int llunveil_commit()
 
 static int llunveil_add_rule(const char* path, int64_t permissions)
 {
-    printf("Add rule: %s: %ld\n", path, permissions);
     if (populate_ruleset(ruleset_fd, path, permissions & ruleset_attr.handled_access_fs)) {
         fprintf( stderr, "Could not populate ruleset for %s: %s\n", path, strerror(errno));
         return -1;
