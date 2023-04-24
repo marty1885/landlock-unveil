@@ -1,9 +1,10 @@
-cmake_minimum_required(VERSION 3.0)
-project(llunveil)
+cmake_minimum_required(VERSION 3.1)
+project(llunveil C)
 
 add_library(llunveil llunveil/llunveil.c)
 target_include_directories(llunveil PUBLIC llunveil)
-
+set_property(TARGET llunveil PROPERTY C_STANDARD 11)
+set_property(TARGET llunveil PROPERTY C_STANDARD_REQUIRED TRUE)
 
 option(LLUNVILE_BUILD_EXAMPLES "Build examples" ON)
 if(LLUNVILE_BUILD_EXAMPLES)
