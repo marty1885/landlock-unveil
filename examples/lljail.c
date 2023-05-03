@@ -70,7 +70,7 @@ int main(int argc, char *argv[], char **envp) {
             path = arg;
             // Add new path into our ruleset
             if(unveil(path, flag) != 0) {
-                fprintf(stderr, "unveil() failed. Error: %s", strerror(errno));
+                fprintf(stderr, "unveil() failed. Error: %s\n", strerror(errno));
             }
         }
     }
