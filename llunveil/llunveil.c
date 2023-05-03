@@ -6,6 +6,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include <fcntl.h>
 #include <linux/landlock.h>
@@ -21,12 +22,14 @@ static inline int landlock_create_ruleset(
     const struct landlock_ruleset_attr *const attr,
     const size_t size, const __u32 flags)
 {
-    return syscall(__NR_landlock_create_ruleset, attr, size, flags);
+    // the syscall returns file descriptor and a file descriptor is always
+    // integer on Linux. So, we can safely cast it to int.
+    return (int)syscall(__NR_landlock_create_ruleset, attr, size, flags);
 }
 #endif
 
 #ifndef landlock_add_rule
-static inline int landlock_add_rule(const int ruleset_fd,
+static inline long landlock_add_rule(const int ruleset_fd,
     const enum landlock_rule_type rule_type,
     const void *const rule_attr, const __u32 flags)
 {
@@ -36,7 +39,7 @@ static inline int landlock_add_rule(const int ruleset_fd,
 #endif
 
 #ifndef landlock_restrict_self
-static inline int landlock_restrict_self(const int ruleset_fd,
+static inline long landlock_restrict_self(const int ruleset_fd,
     const __u32 flags)
 {
     return syscall(__NR_landlock_restrict_self, ruleset_fd, flags);
@@ -169,7 +172,7 @@ static int llunveil_commit()
     return 0;
 }
 
-static int llunveil_add_rule(const char* path, int64_t permissions)
+static int llunveil_add_rule(const char* path, uint64_t permissions)
 {
     if (populate_ruleset(ruleset_fd, path, permissions & ruleset_attr.handled_access_fs)) {
         fprintf( stderr, "Could not populate ruleset for %s: %s\n", path, strerror(errno));
@@ -201,7 +204,7 @@ int llunveil(const char* path, const char* permissions)
         errno = EFAULT;
         return -1;
     }
-    int64_t permission_flags = 0;
+    uint64_t permission_flags = 0;
     for(size_t i=0;permissions[i] != '\0'; i++) {
         switch(permissions[i]) {
             case 'w':
