@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <linux/landlock.h>
@@ -97,8 +98,10 @@ int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
     }
 
     struct stat statbuf;
-    if (fstat(fd, &statbuf) != 0)
-       return -1;
+    if (fstat(fd, &statbuf) != 0) {
+        close(fd);
+        return -1;
+    }
     if(!S_ISDIR(statbuf.st_mode)) {
         allowed_access &= ACCESS_FILE;
     }
@@ -189,22 +192,23 @@ int llunveil(const char* path, const char* permissions)
             return -1;
         initialized = 1;
     }
-    if(path == NULL && permissions == NULL) {
-        if(commited) {
-            errno = EPERM;
-            return -1;
-        }
-        int status = llunveil_commit();
-        commited = (status == 0);
-        return status;
-    }
+
+    // EPERM if we already commited
     if(commited) {
         errno = EPERM;
         return -1;
     }
+
     if(path == NULL || permissions == NULL) {
         errno = EFAULT;
         return -1;
+    }
+
+    if(path == NULL && permissions == NULL) {
+        assert(commited == 0);
+        int status = llunveil_commit();
+        commited = (status == 0);
+        return status;
     }
     uint64_t permission_flags = 0;
     for(size_t i=0;permissions[i] != '\0'; i++) {
