@@ -190,8 +190,10 @@ int llunveil(const char* path, const char* permissions)
         initialized = 1;
     }
     if(path == NULL && permissions == NULL) {
-        if(commited)
-            return 0;
+        if(commited) {
+            errno = EPERM;
+            return -1;
+        }
         int status = llunveil_commit();
         commited = (status == 0);
         return status;
