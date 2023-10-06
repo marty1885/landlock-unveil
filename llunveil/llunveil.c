@@ -199,17 +199,20 @@ int llunveil(const char* path, const char* permissions)
         return -1;
     }
 
-    if(path == NULL || permissions == NULL) {
-        errno = EFAULT;
-        return -1;
-    }
-
+    // both NULL means commit
     if(path == NULL && permissions == NULL) {
         assert(commited == 0);
         int status = llunveil_commit();
         commited = (status == 0);
         return status;
     }
+
+    // EFAULT if path or permissions is NULL (OpenBSD behavior)
+    if(path == NULL || permissions == NULL) {
+        errno = EFAULT;
+        return -1;
+    }
+
     uint64_t permission_flags = 0;
     for(size_t i=0;permissions[i] != '\0'; i++) {
         switch(permissions[i]) {
