@@ -56,6 +56,10 @@ static inline long landlock_restrict_self(const int ruleset_fd,
 #define LANDLOCK_ACCESS_FS_TRUNCATE (1ULL << 14)
 #endif
 
+#ifndef LANDLOCK_ACCESS_FS_IOCTL_DEV
+#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 15)
+#endif
+
 #define ACCESS_FILE ( \
     LANDLOCK_ACCESS_FS_EXECUTE | \
     LANDLOCK_ACCESS_FS_WRITE_FILE | \
@@ -72,7 +76,8 @@ static inline long landlock_restrict_self(const int ruleset_fd,
 #define ACCESS_FS_WRITE ( \
     LANDLOCK_ACCESS_FS_WRITE_FILE | \
     LANDLOCK_ACCESS_FS_TRUNCATE | \
-    LANDLOCK_ACCESS_FS_REFER)
+    LANDLOCK_ACCESS_FS_REFER | \
+    LANDLOCK_ACCESS_FS_IOCTL_DEV)
 
 #define ACCESS_FS_CREATE ( \
     LANDLOCK_ACCESS_FS_REMOVE_DIR | \
@@ -146,6 +151,11 @@ static int llunveil_init()
     ruleset_attr.handled_access_fs = ACCESS_FS_READ | ACCESS_FS_WRITE
        | ACCESS_FS_CREATE | ACCESS_FS_EXECUTE;
     // Limit the available ruleset attributes to the kernel's supported ones.
+    if(abi_version < 5)
+        ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_IOCTL_DEV;
+    // ABI 4 is about landlock net port rules, which we don't use (for now)
+    // I am thinking about adding a new, non-unveil-specific function to
+    // support this feature.
     if(abi_version < 3)
         ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_TRUNCATE;
     if(abi_version < 2)
