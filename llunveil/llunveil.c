@@ -91,7 +91,7 @@ static inline long landlock_restrict_self(const int ruleset_fd,
     LANDLOCK_ACCESS_FS_MAKE_SYM | \
     LANDLOCK_ACCESS_FS_REFER)
 
-int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
+static int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_access) {
     if(path == NULL) {
         errno = EFAULT;
         return -1;
@@ -205,9 +205,12 @@ int llunveil(const char* path, const char* permissions)
 
     // EPERM if we already commited
     if(commited) {
+        assert(ruleset_fd == -1);
         errno = EPERM;
         return -1;
     }
+    // sanity check that we have a valid ruleset_fd
+    assert(ruleset_fd >= 0);
 
     // both NULL means commit
     if(path == NULL && permissions == NULL) {
