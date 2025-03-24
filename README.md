@@ -2,13 +2,23 @@
 
 OpenBSD [unveil(2)][unveil] like function on Linux using [Landlock][landlock] (starting from Linux >= 5.13). Rewritten largely based on [gonack's landlockjail][landlockjail]
 
-**Important:** This is experimental software. DO NOT depend on it for security.
-
 ## Documentation
 
-See OpenBSD unveil(2) for details. Like unveil(2), llunveil(2) allows a process to submit a set of paths and permissions that it is allowed to access, then deny access to all files and directories that it didn't submit later. The API of `llunveil` is like `unveil`. But with a major difference.
+See OpenBSD [unveil(2)][unveil] documentation for details. Like unveil(2), llunveil allows a process to submit a set of paths and permissions that it is allowed to access, then deny access to all files and directories that it didn't submit later.
 
-* Filesystem protection is activated upon calling `unveil(NULL, NULL)`
+The API is simple. `unveil` is a function that takes two arguments: a path and a permission string. The permission string is a set of characters that represent the allowed operations on the path. The following characters are allowed:
+
+* `r` - Makes the path available for read operations
+* `w` - Makes the path available for write operations
+* `x` - Makes the path available for execute operations
+* `c` - Allows creation or deletion at or under the path
+
+Then, to activate the restrictions, call `unveil(NULL, NULL)`. After that, the process will only be able to access the paths that were unveiled.
+
+The API of `llunveil` is like `unveil`. But with a few differences:
+
+* Filesystem protection is activated and committed upon calling `unveil(NULL, NULL)`
+* Non-existing files cannot be unveiled. This is a limitation of Landlock.
 
 Instead of activating upon calling the unveil function. Protections have to be commited in llunveil for them to take effect. For example:
 
@@ -62,11 +72,37 @@ Hello World
 bash: /usr/local/bin/example: Permission denied
 ```
 
+## Example
+
+The following example shows how to use `llunveil` to restrict access to a directory and its subdirectories. The program will be able to read files in `/home/user/` but not write to them. Also no error checking to keep it short.
+
+```c
+// create a macro called `unveil`. Prevent conflict
+#define LLUNVEIL_USE_UNVEIL
+#include <llunveil.h>
+#include <stdio.h>
+
+int main() {
+    // Allow read access to /home/user/ and its subdirectories
+    unveil("/home/user/", "r");
+    unveil(NULL, NULL);
+
+    // Since read access is allowed, opening a file for reading works
+    FILE* file = fopen("/home/user/some_text.txt", "r");
+    assert(file != NULL);
+    char buffer[100];
+    fgets(buffer, 100, file);
+
+    // But writing to the file is not allowed
+    FILE* file2 = fopen("/home/user/other_text.txt", "w");
+    assert(file2 == NULL);
+    return 0;
+}
+```
 
 
 ## TODO
 
 - [ ] Make unit tests
-- [ ] Ensure same behaviour as OpenBSD's
-- [ ] Remove debug error prints
-- [ ] Proper `errno`
+- [x] Ensure behaviour close to OpenBSD's
+- [x] Proper `errno`
