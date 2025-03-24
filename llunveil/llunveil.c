@@ -124,6 +124,7 @@ static int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_acce
         return -1;
     }
 
+    close(fd);
     return 0;
 }
 
@@ -166,7 +167,7 @@ static int llunveil_init()
         perror("Failed to create landlock ruleset");
         return -1;
     }
-  
+
     return 0;
 }
 
