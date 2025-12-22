@@ -63,8 +63,7 @@ static inline long landlock_restrict_self(const int ruleset_fd,
 #define ACCESS_FILE ( \
     LANDLOCK_ACCESS_FS_EXECUTE | \
     LANDLOCK_ACCESS_FS_WRITE_FILE | \
-    LANDLOCK_ACCESS_FS_READ_FILE | \
-    LANDLOCK_ACCESS_FS_REFER)
+    LANDLOCK_ACCESS_FS_READ_FILE)
 
 #define ACCESS_FS_EXECUTE LANDLOCK_ACCESS_FS_EXECUTE
 
