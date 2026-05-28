@@ -63,7 +63,8 @@ static inline long landlock_restrict_self(const int ruleset_fd,
 #define ACCESS_FILE ( \
     LANDLOCK_ACCESS_FS_EXECUTE | \
     LANDLOCK_ACCESS_FS_WRITE_FILE | \
-    LANDLOCK_ACCESS_FS_READ_FILE)
+    LANDLOCK_ACCESS_FS_READ_FILE | \
+    LANDLOCK_ACCESS_FS_TRUNCATE)
 
 #define ACCESS_FS_EXECUTE LANDLOCK_ACCESS_FS_EXECUTE
 
@@ -103,11 +104,20 @@ static int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_acce
 
     struct stat statbuf;
     if (fstat(fd, &statbuf) != 0) {
+        int saved = errno;
         close(fd);
+        errno = saved;
         return -1;
     }
     if(!S_ISDIR(statbuf.st_mode)) {
         allowed_access &= ACCESS_FILE;
+    }
+
+    // Nothing to grant on this path (e.g. "c" on a regular file). Treat as no-op
+    // success rather than letting the kernel reject with EINVAL.
+    if(allowed_access == 0) {
+        close(fd);
+        return 0;
     }
 
     struct landlock_path_beneath_attr path_beneath = {
@@ -117,9 +127,9 @@ static int populate_ruleset(int ruleset_fd, const char *path, __u64 allowed_acce
 
     if (landlock_add_rule(ruleset_fd, LANDLOCK_RULE_PATH_BENEATH,
                           &path_beneath, 0)) {
-        perror("failed to update ruleset");
+        int saved = errno;
         close(fd);
-        // landlock syscall sets the errno
+        errno = saved;
         return -1;
     }
 
@@ -173,11 +183,17 @@ static int llunveil_init()
 static int llunveil_commit()
 {
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-        perror("Failed to restrict privileges");
+        int saved = errno;
+        close(ruleset_fd);
+        ruleset_fd = -1;
+        errno = saved;
         return -1;
     }
     if (landlock_restrict_self(ruleset_fd, 0)) {
-        perror("Failed to enforce ruleset");
+        int saved = errno;
+        close(ruleset_fd);
+        ruleset_fd = -1;
+        errno = saved;
         return -1;
     }
     close(ruleset_fd);
@@ -215,14 +231,21 @@ int llunveil(const char* path, const char* permissions)
     // both NULL means commit
     if(path == NULL && permissions == NULL) {
         assert(commited == 0);
-        int status = llunveil_commit();
-        commited = (status == 0);
-        return status;
+        // commit is one-shot: success or failure both consume the ruleset_fd.
+        commited = 1;
+        return llunveil_commit();
     }
 
     // EFAULT if path or permissions is NULL (OpenBSD behavior)
     if(path == NULL || permissions == NULL) {
         errno = EFAULT;
+        return -1;
+    }
+
+    // Empty permissions string. OpenBSD's unveil treats this as "revoke",
+    // but Landlock has no equivalent. Reject upfront.
+    if(permissions[0] == '\0') {
+        errno = EINVAL;
         return -1;
     }
 
