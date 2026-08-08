@@ -46,42 +46,40 @@ int main(int argc, char *argv[], char **envp) {
         return 1;
     }
 
-    char* flag = NULL;
-    char* path = NULL;
     int i;
-    for(i=1;i<argc;i++) {
+    for(i=1; i<argc; i += 2) {
         char* arg = argv[i];
         if(strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
             help();
             return 0;
         }
-        else if(strcmp(arg, "--") == 0) {
+        if(strcmp(arg, "--") == 0) {
             break;
         }
-        
-        if(i%2 == 1) {
-            if(is_flag_valid(arg) == 0) {
-                fprintf(stderr, "Unrecognized flag %s. A flag must be composed from the set [rwxc]\n", arg);
-                return 1;
-            }
-            flag = (arg+1);
+
+        if(is_flag_valid(arg) == 0) {
+            fprintf(stderr, "Unrecognized flag %s. A flag must be composed from the set [rwxc]\n", arg);
+            return 1;
         }
-        else {
-            path = arg;
-            // Add new path into our ruleset
-            if(unveil(path, flag) != 0) {
-                fprintf(stderr, "unveil() failed. Error: %s\n", strerror(errno));
-            }
+        if(i + 1 == argc || strcmp(argv[i + 1], "--") == 0) {
+            fprintf(stderr, "Missing path for flag %s\n", arg);
+            return 1;
+        }
+
+        // Add new path into our ruleset.
+        if(unveil(argv[i + 1], arg + 1) != 0) {
+            fprintf(stderr, "unveil() failed. Error: %s\n", strerror(errno));
+            return 1;
         }
     }
+    if(i >= argc || strcmp(argv[i], "--") != 0 || i + 1 >= argc) {
+        fprintf(stderr, "Missing program to execute\n");
+        return 1;
+    }
+
     // Unlike OpenBSD unveil. llunveil enables protection on unveil(NULL, NULL) (locking down)
     if(unveil(NULL, NULL) != 0) {
         fprintf(stderr, "failed to lockdown landock ruleset. %s", strerror(errno));
-    }
-
-    if(strcmp(argv[i], "--") != 0 || i+1 == argc) {
-        fprintf(stderr, "Missing program to execute\n");
-        return 1;
     }
     i++;
 
@@ -96,4 +94,3 @@ int main(int argc, char *argv[], char **envp) {
             "shared libraries may be denied.\n");
     return 1;
 }
-
